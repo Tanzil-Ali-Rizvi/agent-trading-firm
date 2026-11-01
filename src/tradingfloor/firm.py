@@ -157,7 +157,12 @@ class TradingFirm:
                         floors.append(FloorVerdict(
                             "strategy", "pass",
                             f"entry next open ~{setup.entry:,.6g}, stop {setup.stop:,.6g}, target {setup.target:,.6g}"
-                            f" (1:{setup.reward_risk:.1f}); review {review.verdict} ({review.confidence})",
+                            f" (1:{setup.reward_risk:.1f}); "
+                            + (
+                                f"LLM opinion {review.verdict} ({review.confidence}), advisory only"
+                                if self.cfg.llm.review_mode == "advisory" and review.verdict not in ("skipped",)
+                                else f"review {review.verdict} ({review.confidence})"
+                            ),
                         ))  # fmt: skip
                     self.say(now, "strategy", "testing", "setup", f"{idea.coin}: {thesis}")
 

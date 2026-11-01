@@ -140,7 +140,9 @@ def test_daily_loss_limit_means_wait(data):
 
 # ------------------------------------------------------------------ LLM output is untrusted
 def test_review_validation_and_veto():
-    s = Strategy(CFG, llm=None)
+    veto_cfg = FloorConfig()
+    veto_cfg.llm.review_mode = "veto"
+    s = Strategy(veto_cfg, llm=None)
     assert validate_review("X", {"verdict": "APPROVE", "confidence": "85", "thesis": "ok"}).confidence == 85
     bad = validate_review("X", {"verdict": "buy everything", "confidence": 100})
     assert bad.verdict == "unavailable" and s.vetoes(bad)  # fail closed
@@ -209,3 +211,10 @@ def test_firm_backtest_is_deterministic_and_accounts_cash(data):
     open_cost = sum(p.units * p.entry_price + p.fees_paid for p in a.broker.positions.values())
     assert a.broker.cash == pytest.approx(CFG.starting_cash + realized - open_cost, rel=1e-9)
     assert all(len(d.floors) >= 2 for d in a.decisions)
+
+
+def test_advisory_mode_never_blocks():
+    s = Strategy(FloorConfig(), llm=None)  # default: advisory, per the LLM ablation
+    rej = validate_review("X", {"verdict": "reject", "confidence": 90})
+    assert s.would_veto(rej) and not s.vetoes(rej)
+    assert not s.vetoes(validate_review("X", {"verdict": "nonsense"}))

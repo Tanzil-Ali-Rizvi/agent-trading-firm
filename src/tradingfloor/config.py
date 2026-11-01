@@ -7,6 +7,8 @@ the fee-sensitivity and ablation runs instead of a parameter sweep.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 # Liquid Coinbase USD pairs. Stablecoins and wrapped tokens are excluded on purpose.
@@ -72,9 +74,13 @@ class TestingConfig(BaseModel):
 
 class LLMConfig(BaseModel):
     enabled: bool = True
+    # "advisory": the LLM writes the thesis and its verdict is logged, but it cannot block a trade.
+    # "veto": a reject (or low confidence) blocks the trade. The anonymised ablation (results/llm_ablation.md) found
+    # the setups the LLM vetoed did *better* than the ones it approved, so the live firm runs in advisory mode.
+    review_mode: Literal["advisory", "veto"] = "advisory"
     route: str = "smart"  # gateway route: gpt-oss-120b -> gpt-oss-20b
     max_reviews_per_cycle: int = 3
-    fail_closed: bool = True  # if the strategy floor cannot get an LLM review, the idea waits
+    fail_closed: bool = True  # veto mode: if the strategy floor cannot get an LLM review, the idea waits
     veto_confidence_below: int = 40  # LLM verdict "reject" or confidence under 40 -> veto
 
 

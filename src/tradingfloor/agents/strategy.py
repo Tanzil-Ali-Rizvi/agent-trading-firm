@@ -135,12 +135,17 @@ class Strategy:
             )  # fmt: skip
         return validate_review(setup.coin, res.data, res.model, res.cost_usd, res.latency_ms)
 
-    def vetoes(self, review: Review) -> bool:
+    def would_veto(self, review: Review) -> bool:
+        """The LLM's judgement, independent of whether the firm lets it act on it."""
         if review.verdict == "skipped":
             return False
         if review.verdict == "unavailable":
             return self.cfg.llm.fail_closed
         return review.verdict == "reject" or review.confidence < self.cfg.llm.veto_confidence_below
+
+    def vetoes(self, review: Review) -> bool:
+        """Whether the review actually blocks the trade (only in "veto" mode)."""
+        return self.cfg.llm.review_mode == "veto" and self.would_veto(review)
 
 
 def validate_review(coin: str, d: dict, model: str = "", cost: float = 0.0, latency: float = 0.0) -> Review:

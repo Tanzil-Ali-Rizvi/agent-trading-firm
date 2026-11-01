@@ -15,7 +15,7 @@
 ```mermaid
 flowchart BT
     S[01 Scanner<br/>ranks 20 coins every 4h] --> R[02 Research<br/>news: catalysts, red flags,<br/>contrary evidence · LLM]
-    R --> ST[03 Strategy<br/>entry, stop, target by rules<br/>LLM second opinion: veto only]
+    R --> ST[03 Strategy<br/>entry, stop, target by rules<br/>LLM thesis + opinion: advisory]
     ST --> T[04 Testing<br/>replay this rule on this coin's past<br/>after fees, finished trades only]
     T --> RK[05 Risk<br/>1% risk per trade, exposure,<br/>daily loss limit, regime]
     RK --> C[06 Control<br/>trade / wait / reject<br/>+ decision log]
@@ -29,13 +29,13 @@ Most "AI trading bot" demos let a language model pick trades and then show a pro
 
 | Principle | How it shows up |
 |---|---|
-| **Numbers come from code, not from the LLM** | Entry, stop, target and size are computed by rules. The LLM writes the research summary and the trade thesis, and can **only veto**. A test feeds it hostile output (`"units": 1e9, "stop": 0`) and checks that nothing changes. |
+| **Numbers come from code, not from the LLM** | Entry, stop, target and size are computed by rules. The LLM writes the research summary and the trade thesis; its trade opinion was allowed to *veto* until the ablation below showed the vetoes removed winning trades, so it is now **advisory**. A test feeds it hostile output (`"units": 1e9, "stop": 0`) and checks that nothing changes. |
 | **Test the rule before trusting it** | The testing floor replays the exact entry rule on the coin's own history, with fees and slippage, and only counts trades that had **finished before the decision time**. No edge, no trade. |
 | **Waiting is a decision** | Every failed check is either *reject* (the idea is bad) or *wait* (the idea may be fine, the book can't take it now: risk-off market, too many positions, daily loss limit). |
 | **One code path** | The backtest and the live loop both call `TradingFirm.step(now)`. There is no separate "backtest version" of the strategy. |
 | **No look-ahead** | Agents only see bars that had closed (`MarketData.view(now)`), entries fill at the *next* bar's open, a bar that touches both stop and target counts as a stop, and gaps through a stop exit at the open. Tests cover each of these. |
 | **Untrusted text stays data** | News headlines are cleaned, capped and passed to the model as JSON data; the model's answer can only block a trade, never start one. |
-| **Ablations, not a best run** | The backtest re-runs with floors removed and with retail fees, and an anonymised LLM ablation measures whether the LLM's vetoes pick worse trades than the ones it approves. |
+| **Ablations, not a best run** | The backtest re-runs with floors removed and with retail fees, and an anonymised LLM ablation measures whether the LLM's vetoes actually remove bad trades (they didn't). |
 
 ## Results
 
@@ -64,7 +64,19 @@ Full tables: [`results/backtest.md`](results/backtest.md) and [`results/llm_abla
 
 The system itself works: it measures honestly, fails safely and caps losses. The strategy inside it doesn't make money. That is the useful result, and it is the reason the backtest, ablations and decision log exist.
 
-<!-- ABLATION -->
+### Does the LLM's judgement help? No, it hurt.
+
+966 setups met the entry rules in the test period. A random 150 were replayed to their exit and shown to the LLM reviewer (Groq `gpt-oss-120b` via llm-gateway) **anonymised**: no coin name, no dates, prices indexed to 100, so it could not recognise the episode and answer with hindsight.
+
+| Setups | Count | Avg result after costs | Win rate |
+|---|---|---|---|
+| All reviewed | 150 | +0.22R | 39% |
+| LLM approved | 136 | +0.12R | 36% |
+| **LLM vetoed** | **14** | **+1.19R** | **71%** |
+
+The setups the LLM rejected did *better* than the ones it approved; the 95% bootstrap interval for approved-minus-vetoed is -2.05R to -0.14R, which excludes zero. With only 14 vetoes the size of the effect is uncertain, but there is no sign the review adds value and some sign it removes it. All 14 rejections give the same reason, an overbought RSI or a rapid prior rally: the textbook caution that a trend-following breakout rule exists to ignore. Every call went to `gpt-oss-120b`; reasons are in [`results/llm_ablation.json`](results/llm_ablation.json).
+
+So the live firm runs the review in **advisory mode**: the thesis and verdict are still written and logged for every idea, but they no longer block trades (`LLMConfig.review_mode`). The whole study cost $0.03 in API calls.
 
 ## The floors
 
@@ -72,7 +84,7 @@ The system itself works: it measures honestly, fails safely and caps losses. The
 |---|---|---|
 | 01 Scanner | Ranks all 20 coins every 4 hours on 7-day and 24-hour momentum, trend and volume; sends coins that are in an uptrend *and* breaking out up the building | rules |
 | 02 Research | Reads CoinDesk, Cointelegraph and Decrypt headlines that mention the coin; returns sentiment, catalysts, red flags and **counterpoints** | LLM (can only block) |
-| 03 Strategy | Entry rules on 4h bars: close > EMA50 > EMA200, close above the 20-bar high, MACD histogram > 0, volume ≥ 1.5× average, RSI 55 to 80. Stop 2 ATR, target 4R, breakeven at +2R, 3-ATR trailing stop. Then an LLM second opinion | rules + LLM veto |
+| 03 Strategy | Entry rules on 4h bars: close > EMA50 > EMA200, close above the 20-bar high, MACD histogram > 0, volume ≥ 1.5× average, RSI 55 to 80. Stop 2 ATR, target 4R, breakeven at +2R, 3-ATR trailing stop. Then an LLM thesis and opinion | rules (LLM advisory; `review_mode: veto` available) |
 | 04 Testing | Replays the rule on this coin's last 365 days (≥ 8 finished trades averaging ≥ +0.10R after costs), else on the whole universe (≥ 30 trades); otherwise *wait* | rules |
 | 05 Risk | Liquidity, volatility and reward/risk (*reject*); BTC regime, open positions ≤ 5, total open risk ≤ 5%, daily loss limit 3%, cooldown after a stop-out (*wait*). Size = 1% of equity at risk, capped at 20% of equity | rules |
 | 06 Control | Final call from the floors' verdicts, a kill switch, and the decision log | rules |
@@ -111,7 +123,7 @@ tradingfloor serve --state-dir state                # local API for the dashboar
 cd dashboard && npm ci && NEXT_PUBLIC_SNAPSHOT_URL=http://localhost:8000/snapshot.json npm run dev
 ```
 
-`pytest` runs 18 tests: indicator causality, the point-in-time view, the testing floor ignoring unfinished trades, fills, gaps, stop-before-target, breakeven and trailing stops, cash accounting, sizing, daily loss limit, LLM output validation and fail-closed behaviour, hostile headlines and LLM output, determinism, and live state resuming across runs.
+`pytest` runs 19 tests: indicator causality, the point-in-time view, the testing floor ignoring unfinished trades, fills, gaps, stop-before-target, breakeven and trailing stops, cash accounting, sizing, daily loss limit, LLM output validation, fail-closed and advisory modes, hostile headlines and LLM output, determinism, and live state resuming across runs.
 
 ## Project layout
 
@@ -121,7 +133,7 @@ src/tradingfloor/
   agents/            scanner, research, strategy, testing, risk, control, executor, portfolio
   market.py          Coinbase download, point-in-time MarketView, synthetic data for tests
   backtest.py        replay + ablations + buy-and-hold benchmarks
-  ablation.py        anonymised LLM-veto study with bootstrap confidence interval
+  ablation.py        anonymised LLM-review study with bootstrap confidence interval
   live.py            hourly paper-trading run and dashboard snapshot
   llm.py             llm-gateway (in-process) / any OpenAI-compatible endpoint / scripted for tests
 dashboard/           Next.js static site: the building, elevator log, market, book, testing results

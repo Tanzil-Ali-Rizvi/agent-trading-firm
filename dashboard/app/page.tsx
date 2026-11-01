@@ -136,7 +136,8 @@ export default function Page() {
               <p style={{ margin: "0 0 8px" }}>
                 <b>What this says.</b> The entry rule has no reliable edge after costs: the average trade is close to 0R in every variant. The risk floor does
                 its job, roughly halving the worst drawdown compared with the same rule without limits. The testing floor did not add value in this period.
-                At retail exchange fees the same firm loses money clearly.
+                At retail exchange fees the same firm loses money clearly. In an anonymised test, the setups the LLM vetoed did better than the ones it
+                approved, so its opinion is now advisory only.
               </p>
               <p style={{ margin: 0 }}>
                 Parameters were fixed before the run and not tuned afterwards. The system works; this strategy inside it doesn't, and the firm is built to show

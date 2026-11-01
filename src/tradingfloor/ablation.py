@@ -70,7 +70,7 @@ async def main_async(args: argparse.Namespace) -> dict[str, Any]:
             continue
         rev = await strategy.review(setup, view, anonymize=True)
         rows.append({"coin": coin, "ts": ts.isoformat(), "r": round(r, 3), "verdict": rev.verdict,
-                     "confidence": rev.confidence, "vetoed": strategy.vetoes(rev), "model": rev.model,
+                     "confidence": rev.confidence, "vetoed": strategy.would_veto(rev), "model": rev.model,
                      "thesis": rev.thesis, "cost_usd": rev.cost_usd})  # fmt: skip
         if (k + 1) % 10 == 0:
             print(f"  {k + 1}/{len(sample)} reviewed")
