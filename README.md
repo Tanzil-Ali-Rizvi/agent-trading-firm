@@ -43,7 +43,28 @@ The backtest runs in GitHub Actions on three years of hourly Coinbase candles: t
 
 Full tables: [`results/backtest.md`](results/backtest.md) and [`results/llm_ablation.md`](results/llm_ablation.md).
 
-<!-- RESULTS -->
+**Two years, 1 Nov 2024 to 1 Nov 2026, 20 coins, $10,000 paper account, 0.10% fee + 0.05% slippage per side:**
+
+| System | Return | Max drawdown | Sharpe | Trades | Win rate | Avg trade |
+|---|---|---|---|---|---|---|
+| **Full firm** (rules, no LLM) | **−4.3%** | **−25.1%** | −0.04 | 175 | 29% | −0.02R |
+| without the testing floor | +5.7% | −30.4% | 0.24 | 286 | 31% | +0.04R |
+| without the risk floor | −12.8% | −45.1% | −0.14 | 203 | 28% | −0.07R |
+| without testing and risk | +1.1% | −45.1% | 0.17 | 361 | 31% | +0.03R |
+| full firm at retail fees (0.6%) | −27.3% | −34.9% | −1.09 | 113 | 26% | −0.31R |
+| Bitcoin, buy and hold | +10.1% | −53.9% | 0.33 | | | |
+| All 20 coins, equal weight, buy and hold | −19.2% | −76.7% | 0.22 | | | |
+
+**What this says, plainly:**
+
+- **The entry rule has no reliable edge.** Every variant's profit factor is about 1.0 and the average trade is within ±0.07R of zero. A trend-following breakout made +13.6% in the late-2024 rally and gave it back in the 2025–26 chop, which is what trend following does when trends don't last. I did not tune the parameters after seeing this: a version tuned on this period would look better here and mean nothing.
+- **The risk floor does its job.** It halves the worst drawdown compared with the same rule without limits (−25% vs −45%), and the firm's drawdown is half of Bitcoin's and a third of the 20-coin basket's, with money in the market only 24% of the time.
+- **The testing floor did not help.** It rejected 277 ideas and held back 160 because the rule's recent record on that coin was poor, yet the run without it did slightly better. Filtering a rule with no edge by its own recent record mostly filters noise. The floor stays, because its value is refusing to trade a rule that has *demonstrably* stopped working, but this run gives it no credit.
+- **Costs decide everything for a marginal strategy.** At a retail exchange's 0.6% fee the same firm loses 27%.
+
+The system itself works: it measures honestly, fails safely and caps losses. The strategy inside it doesn't make money. That is the useful result, and it is the reason the backtest, ablations and decision log exist.
+
+<!-- ABLATION -->
 
 ## The floors
 

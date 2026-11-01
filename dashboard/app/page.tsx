@@ -131,6 +131,19 @@ export default function Page() {
             levels, to see what each part is worth.
           </p>
           {bt?.data ? <TestingFloor bt={bt.data} ablation={bt.ablation} sample={bt.source === "sample"} /> : <p className="empty">Loading backtest results…</p>}
+          {bt?.source === "live" ? (
+            <div className="note" style={{ maxWidth: "52em", marginTop: 24 }}>
+              <p style={{ margin: "0 0 8px" }}>
+                <b>What this says.</b> The entry rule has no reliable edge after costs: the average trade is close to 0R in every variant. The risk floor does
+                its job, roughly halving the worst drawdown compared with the same rule without limits. The testing floor did not add value in this period.
+                At retail exchange fees the same firm loses money clearly.
+              </p>
+              <p style={{ margin: 0 }}>
+                Parameters were fixed before the run and not tuned afterwards. The system works; this strategy inside it doesn't, and the firm is built to show
+                exactly that.
+              </p>
+            </div>
+          ) : null}
         </section>
 
         <section className="block" id="log">
