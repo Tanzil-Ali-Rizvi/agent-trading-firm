@@ -3,7 +3,7 @@ name: Live paper trading
 # force-pushed as a single commit each run so the repository does not grow by an hourly commit forever.
 on:
   schedule:
-    - cron: "7 * * * *"
+    - cron: "17 * * * *"  # minute 17: GitHub delays or drops runs scheduled at the top of the hour
   workflow_dispatch:
 
 permissions:
