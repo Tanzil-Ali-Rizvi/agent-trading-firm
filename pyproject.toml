@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-trading-firm"
+version = "0.1.0"
+description = "Six cooperating agents (scanner, analyst, research, risk manager, executor, portfolio) paper-trading liquid crypto, with an honest backtest and an LLM-veto ablation."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Tanzil Ali Rizvi" }]
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "httpx>=0.27",
+    "pydantic>=2.6",
+]
+
+[project.optional-dependencies]
+llm = ["llm-gateway @ git+https://github.com/Tanzil-Ali-Rizvi/llm-gateway@main"]
+api = ["fastapi>=0.110", "uvicorn[standard]>=0.29"]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[project.scripts]
+tradingfloor = "tradingfloor.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM"]
+ignore = ["E501"]  # the formatter wraps code; long strings and comments are fine

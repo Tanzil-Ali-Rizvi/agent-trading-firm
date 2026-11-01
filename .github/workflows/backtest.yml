@@ -1,0 +1,48 @@
+name: Backtest
+# Downloads 3 years of hourly candles from Coinbase's public API, runs the backtest with ablations and benchmarks,
+# and commits the results. The first year is history for the testing floor; trading is measured on the last two.
+on:
+  workflow_dispatch:
+    inputs:
+      llm_ablation:
+        description: "Also run the LLM review ablation (needs the GROQ_API_KEY secret)"
+        type: boolean
+        default: true
+      max_setups:
+        description: "Setups to send to the LLM in the ablation"
+        default: "150"
+
+permissions:
+  contents: write
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[llm]"
+      - name: Download candles
+        run: tradingfloor download --start 2023-11-01 --end 2026-11-01 --out data/market.json.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: market-data
+          path: data/market.json.gz
+      - name: Backtest
+        run: tradingfloor backtest --data data/market.json.gz --start 2024-11-01 --end 2026-11-01 --out results
+      - name: LLM ablation
+        if: ${{ inputs.llm_ablation }}
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          if [ -z "$GROQ_API_KEY" ]; then echo "GROQ_API_KEY secret not set; skipping"; exit 0; fi
+          tradingfloor llm-ablation --data data/market.json.gz --start 2024-11-01 --max-setups ${{ inputs.max_setups }} --out results
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results
+          git diff --cached --quiet && echo "no changes" || (git commit -m "Backtest results from CI" && git pull --rebase && git push)
