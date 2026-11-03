@@ -38,6 +38,11 @@ jobs:
       - name: Publish state
         run: |
           cd state
+          # The data branch holds only JSON. Tell Vercel not to build it (the dashboard deploys from main), both at
+          # the repo root and inside the project's root directory, so no "preview deployment failed" emails.
+          mkdir -p dashboard
+          echo '{"git":{"deploymentEnabled":false}}' > vercel.json
+          echo '{"git":{"deploymentEnabled":false}}' > dashboard/vercel.json
           git init -q -b data
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
